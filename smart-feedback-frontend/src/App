@@ -1,0 +1,127 @@
+import { useState } from 'react';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import './App.css';
+
+function App() {
+  const [inputText, setInputText] = useState('');
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  // Calculate stats for the chart
+  const data = [
+    { name: 'Positive', value: history.filter(h => h.sentiment === 'Positive').length, color: '#00C49F' },
+    { name: 'Negative', value: history.filter(h => h.sentiment === 'Negative').length, color: '#FF8042' },
+    { name: 'Neutral', value: history.filter(h => h.sentiment === 'Neutral').length, color: '#FFBB28' },
+  ].filter(item => item.value > 0);
+
+  const handleAnalyze = async () => {
+    if (!inputText) return;
+    setLoading(true);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: inputText }),
+      });
+      const data = await response.json();
+      
+      setResult(data);
+      // Add to history list (Newest first)
+      setHistory(prev => [{ ...data, id: Date.now() }, ...prev]);
+      setInputText(''); 
+    } catch (error) {
+      alert("Error: Is your Python backend running?");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      
+      {/* Header Section */}
+      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+        <h1 style={{ color: '#333' }}>?? SmartFeedback Dashboard</h1>
+        <p style={{ color: '#666' }}>Real-time Customer Sentiment Analytics</p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+        
+        {/* Left Side: Input Area */}
+        <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <h3>?? Analyze New Feedback</h3>
+          <textarea 
+            rows="4" 
+            placeholder="Paste customer review here..."
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            style={{ width: '95%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px' }}
+          />
+          <button 
+            onClick={handleAnalyze} 
+            disabled={loading}
+            style={{ 
+              marginTop: '15px', width: '100%', padding: '12px', 
+              backgroundColor: '#2563EB', color: 'white', border: 'none', 
+              borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' 
+            }}
+          >
+            {loading ? 'Processing...' : 'Analyze Now'}
+          </button>
+
+          {/* Result Card */}
+          {result && (
+            <div style={{ marginTop: '20px', padding: '15px', background: '#F3F4F6', borderRadius: '8px', borderLeft: '5px solid #2563EB' }}>
+              <p style={{ margin: 0, fontWeight: 'bold' }}>Latest Result:</p>
+              <h2 style={{ margin: '5px 0', color: result.sentiment === 'Positive' ? '#059669' : result.sentiment === 'Negative' ? '#DC2626' : '#D97706' }}>
+                {result.sentiment}
+              </h2>
+              <small>Confidence Score: {result.score}</small>
+            </div>
+          )}
+        </div>
+
+        {/* Right Side: Analytics Chart */}
+        <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minHeight: '300px' }}>
+          <h3>?? Sentiment Trends</h3>
+          {history.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                  {data.map((entry, index) => (
+                    <Cell key={cell-} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
+              No data yet. Analyze some reviews!
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Section: Recent History */}
+      <div style={{ marginTop: '30px', background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+        <h3>?? Recent Scans</h3>
+        {history.length === 0 && <p style={{ color: '#999' }}>History is empty.</p>}
+        <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+          {history.map((item) => (
+            <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
+              <span style={{ color: '#555', fontStyle: 'italic' }}>"{item.original_text.substring(0, 50)}..."</span>
+              <strong style={{ color: item.sentiment === 'Positive' ? '#059669' : item.sentiment === 'Negative' ? '#DC2626' : '#D97706' }}>
+                {item.sentiment}
+              </strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
+export default App
